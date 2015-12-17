@@ -1,7 +1,15 @@
 <resources>
     <string name="app_name">Furoi Control Tester</string>
     <string name="action_settings">Settings</string>
-    <string name="edit_message">Enter command</string>
+    <string name="set_wheel_movement">left vel, left dur, right vel, right dur</string>
+    <string name="set_wing_movement">side, angle, vel</string>
+    <string name="set_LED">wing b, g, r, head b, g, r</string>
+    <string name="set_encoder_transmission">enable/disable</string>
+    <string name="request_touch_sensor">touch sensor</string>
+    <string name="request_distance_sensor">psd sensor</string>
+    <string name="request_cliff_sensor">cliff sensor</string>
+    <string name="request_battery_info">battery info</string>
+    <string name="request_encoder_count">encoder count</string>
     <string name="button_send">Send</string>
 
 </resources>

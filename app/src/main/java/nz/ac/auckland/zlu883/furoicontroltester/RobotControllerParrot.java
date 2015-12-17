@@ -5,7 +5,8 @@ import android.util.Log;
 
 /**
  * Controller class used to construct/decipher bluetooth messages for communicating
- * with the Furo-i Parrot. Also keeps tack of the robot's status.
+ * with the Furo-i Parrot. Presents an interface for sending commands to the robot
+ * and requesting data from the robot.
  *
  * Created by Jonny Lu on 12/14/2015.
  */
@@ -18,11 +19,12 @@ public class RobotControllerParrot implements BluetoothListener {
 
     private String logTag = "Robot controller(parrot)";
 
+    // Bluetooth related
     private BluetoothManager btManager;
     private byte[] btBuffer = new byte[1024];
     private int bufferCount = 0;
 
-    // Robot status info
+    // Buffers for keeping track of incoming data from robot
     public enum PsdRange {CLOSE, MID, FAR}
     public enum TouchPattern {NONE, HIT, PAT, RUB, PUSH}
     private PsdRange[] psdSensors = {PsdRange.FAR, PsdRange.FAR, PsdRange.FAR, PsdRange.FAR, PsdRange.FAR}; // [front left, front right, back right, back center, back left]
@@ -31,10 +33,10 @@ public class RobotControllerParrot implements BluetoothListener {
     private TouchPattern touchPattern = TouchPattern.NONE;
     private int batteryLevel = 0;
     private int batteryVoltage = 0;
-    private boolean[] ledPatterns = {false, false, false, false, false}; // [head red, head green, head blue, wing red, wing green, wing blue]
     private long encoderCountLeft = 0;
     private long encoderCountRight = 0;
 
+    // Singleton
     public static RobotControllerParrot getInstance() {
         if (INSTANCE == null) {
             INSTANCE = new RobotControllerParrot();
@@ -141,106 +143,6 @@ public class RobotControllerParrot implements BluetoothListener {
         return (byte) ~val;
     }
 
-    public byte[] setEncoderTransmission(boolean enable) {
-        byte[] command = new byte[5];
-        command[0] = (byte) 0x2e;
-        command[1] = (byte) 0x04;
-        command[2] = (byte) 0x03;
-        command[3] = (byte) 0xa0;
-        if (enable)
-            command[5] = (byte) 0x05;
-        else
-            command[5] = (byte) 0x00;
-        return command;
-    }
-
-    public byte[] setMotorVelocity(int leftVel, int leftDuration, int rightVel, int rightDuration) {
-        byte[] command = new byte[15];
-        command[0] = (byte) 0xfe;
-        command[1] = (byte) 0x0e;
-        command[2] = (byte) 0x06;
-        command[3] = (byte) 0x20;
-        command[4] = (byte) 0x04;
-        command[5] = (byte) 0x2e;
-        command[6] = (byte) leftVel;
-        command[7] = (byte) (leftVel >> 8);
-        command[8] = (byte) leftDuration;
-        command[9] = (byte) (leftDuration >> 8);
-        command[10] = (byte) 0x2f;
-        command[11] = (byte) rightVel;
-        command[12] = (byte) (rightVel >> 8);
-        command[13] = (byte) rightDuration;
-        command[14] = (byte) (rightDuration >> 8);
-        return command;
-    }
-
-    public byte[] setWingMovement(int wing, int targetPos, int vel) {
-        byte[] command = new byte[10];
-        command[0] = (byte) 0xfe;
-        command[1] = (byte) 0x09;
-        command[2] = (byte) 0x83;
-        command[3] = (byte) 0x1e;
-        command[4] = (byte) 0x04;
-        if (wing == LEFT)
-            command[5] = (byte) 0x2d;
-        else if (wing == RIGHT)
-            command[5] = (byte) 0x2b;
-        else
-            Log.i(logTag, "Bad wing id");
-        command[6] = (byte) targetPos;
-        command[7] = (byte) (targetPos >> 8);
-        command[8] = (byte) vel;
-        command[9] = (byte) (vel >> 8);
-        return command;
-    }
-
-    public byte[] setLedColor(boolean wingBlue, boolean wingGreen, boolean wingRed, boolean headBlue,
-                              boolean headGreen, boolean headRed) {
-        byte[] command = new byte[5];
-        command[0] = (byte) 0x25;
-        command[1] = (byte) 0x04;
-        command[2] = (byte) 0x03;
-        command[3] = (byte) 0xc0;
-        int b = 0;
-        if (headRed) {
-            ledPatterns[0] = true;
-            b = b + 32;
-        } else {
-            ledPatterns[0] = false;
-        }
-        if (headGreen) {
-            ledPatterns[1] = true;
-            b = b + 16;
-        } else {
-            ledPatterns[1] = false;
-        }
-        if (headBlue) {
-            ledPatterns[2] = true;
-            b = b + 8;
-        } else {
-            ledPatterns[2] = false;
-        }
-        if (wingRed) {
-            ledPatterns[3] = true;
-            b = b + 4;
-        } else {
-            ledPatterns[3] = false;
-        }
-        if (wingGreen) {
-            ledPatterns[4] = true;
-            b = b + 2;
-        } else {
-            ledPatterns[4] = false;
-        }
-        if (wingBlue) {
-            ledPatterns[5] = true;
-            b = b + 1;
-        } else {
-            ledPatterns[5] = false;
-        }
-        command[4] = (byte) b;
-        return command;
-    }
 
     public void dataReceived(byte[] data, int byteCount) {
         int i = 0;
@@ -263,6 +165,141 @@ public class RobotControllerParrot implements BluetoothListener {
 
     public void btDisconnect() {
         btManager.btDisconnect();
+    }
+
+
+    // ---------------------------------------------------------------------
+    // The functions below serve as the API for the robot controller
+    // ---------------------------------------------------------------------
+
+    public void setEncoderTransmission(boolean enable) {
+        byte[] command = new byte[5];
+        command[0] = (byte) 0x2e;
+        command[1] = (byte) 0x04;
+        command[2] = (byte) 0x03;
+        command[3] = (byte) 0xa0;
+        if (enable)
+            command[5] = (byte) 0x05;
+        else
+            command[5] = (byte) 0x00;
+        sendCmdMessage(command);
+    }
+
+    public void setMotorVelocity(int leftVel, int leftDuration, int rightVel, int rightDuration) {
+        byte[] command = new byte[15];
+        command[0] = (byte) 0xfe;
+        command[1] = (byte) 0x0e;
+        command[2] = (byte) 0x06;
+        command[3] = (byte) 0x20;
+        command[4] = (byte) 0x04;
+        command[5] = (byte) 0x2e;
+        command[6] = (byte) leftVel;
+        command[7] = (byte) (leftVel >> 8);
+        command[8] = (byte) leftDuration;
+        command[9] = (byte) (leftDuration >> 8);
+        command[10] = (byte) 0x2f;
+        command[11] = (byte) rightVel;
+        command[12] = (byte) (rightVel >> 8);
+        command[13] = (byte) rightDuration;
+        command[14] = (byte) (rightDuration >> 8);
+        sendCmdMessage(command);
+    }
+
+    public void setWingMovement(int wing, int targetPos, int vel) {
+        byte[] command = new byte[10];
+        command[0] = (byte) 0xfe;
+        command[1] = (byte) 0x09;
+        command[2] = (byte) 0x83;
+        command[3] = (byte) 0x1e;
+        command[4] = (byte) 0x04;
+        if (wing == LEFT)
+            command[5] = (byte) 0x2d;
+        else if (wing == RIGHT)
+            command[5] = (byte) 0x2b;
+        else
+            Log.i(logTag, "Bad wing id");
+        command[6] = (byte) targetPos;
+        command[7] = (byte) (targetPos >> 8);
+        command[8] = (byte) vel;
+        command[9] = (byte) (vel >> 8);
+        sendCmdMessage(command);
+    }
+
+    public void setLedColor(boolean wingBlue, boolean wingGreen, boolean wingRed, boolean headBlue,
+                              boolean headGreen, boolean headRed) {
+        byte[] command = new byte[5];
+        command[0] = (byte) 0x25;
+        command[1] = (byte) 0x04;
+        command[2] = (byte) 0x03;
+        command[3] = (byte) 0xc0;
+        int b = 0;
+        if (headRed) {
+            b = b + 32;
+        }
+        if (headGreen) {
+            b = b + 16;
+        }
+        if (headBlue) {
+            b = b + 8;
+        }
+        if (wingRed) {
+            b = b + 4;
+        }
+        if (wingGreen) {
+            b = b + 2;
+        }
+        if (wingBlue) {
+            b = b + 1;
+        }
+        command[4] = (byte) b;
+        sendCmdMessage(command);
+    }
+
+    public String[] requestTouchSensorData () {
+        String[] data = new String[10];
+        for (int i = 0; i < touchSensors.length; i++) {
+            if (touchSensors[i]) {
+                data[i] = "DETECTED";
+            } else {
+                data[i] = "NONE";
+            }
+        }
+        data[9] = touchPattern.name();
+        return data;
+    }
+
+    public String[] requestDistanceSensorData () {
+        String[] data = new String[5];
+        for (int i = 0; i < psdSensors.length; i++) {
+            data[i] = psdSensors[i].name();
+        }
+        return data;
+    }
+
+    public String[] requestCliffSensorData () {
+        String[] data = new String[4];
+        for (int i = 0; i < cliffSensors.length; i++) {
+            if (cliffSensors[i]) {
+                data[i] = "DETECTED";
+            } else {
+                data[i] = "NONE";
+            }
+        }
+        return data;
+    }
+
+    public String[] requestBatteryInfo () {
+        String[] data = new String[2];
+        data[0] = Integer.toString(batteryLevel);
+        data[1] = Integer.toString(batteryVoltage);
+        return data;
+    }
+
+    public String[] requestEncoderCount () {
+        String[] data = new String[2];
+        data[0] = Long.toString(encoderCountLeft);
+        data[1] = Long.toString(encoderCountRight);
+        return data;
     }
 
 }
