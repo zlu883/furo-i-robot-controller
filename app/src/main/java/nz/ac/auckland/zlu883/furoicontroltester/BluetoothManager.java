@@ -46,7 +46,7 @@ public class BluetoothManager {
             Set<BluetoothDevice> pairedDevices = btAdapter.getBondedDevices();
             if (pairedDevices.size() > 0) {
                 for (BluetoothDevice device : pairedDevices) {
-                    if (device.getAddress().equals(robotMacAddress_home)) {
+                    if (device.getAddress().equals(robotMacAddress_parrot)) {
                         btDevice = device;
                     }
                 }

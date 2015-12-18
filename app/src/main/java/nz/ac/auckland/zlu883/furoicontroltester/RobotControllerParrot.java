@@ -50,7 +50,7 @@ public class RobotControllerParrot implements BluetoothListener {
     }
 
     public void processRobotMessage(byte[] message) {
-        if (checkCRC(message)) {
+        if (checkCRC(message) && message.length -1 == message[1]) {
             switch (message[0]) {
                 case (0x16):
                     processTouchSensor(message);
@@ -147,15 +147,18 @@ public class RobotControllerParrot implements BluetoothListener {
     public void dataReceived(byte[] data, int byteCount) {
         int i = 0;
         while (i < byteCount) {
-            if (data[i] == 0xff && data[i+1] == 0xff) {
-                processRobotMessage(btBuffer);
+            btBuffer[bufferCount] = data[i];
+            if (bufferCount > 2 && (btBuffer[bufferCount] == (byte) 0xff) && (btBuffer[bufferCount-1] == (byte) 0xff)) {
+                byte[] message = new byte[bufferCount-1];
+                for (int j = 0; j < bufferCount - 1; j++) {
+                    message[j] = btBuffer[j];
+                }
+                processRobotMessage(message);
                 bufferCount = 0;
-                i = i + 2;
             } else {
-                btBuffer[bufferCount] = data[i];
                 bufferCount++;
-                i++;
             }
+            i++;
         }
     }
 
@@ -179,9 +182,9 @@ public class RobotControllerParrot implements BluetoothListener {
         command[2] = (byte) 0x03;
         command[3] = (byte) 0xa0;
         if (enable)
-            command[5] = (byte) 0x05;
+            command[4] = (byte) 0x05;
         else
-            command[5] = (byte) 0x00;
+            command[4] = (byte) 0x00;
         sendCmdMessage(command);
     }
 
