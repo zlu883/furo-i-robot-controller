@@ -55,21 +55,51 @@ public class RobotControllerHome implements BluetoothListener {
     }
 
     public void processRobotMessage(byte[] message) {
-        switch (message[1]) {
-            case (0x00): processId(message); break;
-            case (0x01): processFirmwareVersion(message); break;
-            case (0x02): processBuildDate(message); break;
-            case (0x03): processBuildNumber(message); break;
-            case (0x04): processSerialNumber(message); break;
-            case (0x05): processRobotStatus(message); break;
-            case (0x23): processMotorVelocity(message); break;
-            case (0x26): processEncoderCount(message); break;
-            case (0x59): processRobotMacAddress(message); break;
-            case (0x60): processDistanceSensors(message); break;
-            case (0x64): processTemperatureSensor(message); break;
-            case (0x65): processHumiditySensor(message); break;
-            case (0x66): processBatteryInfo(message); break;
-            default: Log.i(logTag, "Bad message type"); break;
+        if (checkCRC(message) && message.length == 8) {
+            switch (message[1]) {
+                case (0x00):
+                    processId(message);
+                    break;
+                case (0x01):
+                    processFirmwareVersion(message);
+                    break;
+                case (0x02):
+                    processBuildDate(message);
+                    break;
+                case (0x03):
+                    processBuildNumber(message);
+                    break;
+                case (0x04):
+                    processSerialNumber(message);
+                    break;
+                case (0x05):
+                    processRobotStatus(message);
+                    break;
+                case (0x23):
+                    processMotorVelocity(message);
+                    break;
+                case (0x26):
+                    processEncoderCount(message);
+                    break;
+                case (0x59):
+                    processRobotMacAddress(message);
+                    break;
+                case (0x60):
+                    processDistanceSensors(message);
+                    break;
+                case (0x64):
+                    processTemperatureSensor(message);
+                    break;
+                case (0x65):
+                    processHumiditySensor(message);
+                    break;
+                case (0x66):
+                    processBatteryInfo(message);
+                    break;
+                default:
+                    Log.i(logTag, "Bad message type");
+                    break;
+            }
         }
     }
 
@@ -83,6 +113,32 @@ public class RobotControllerHome implements BluetoothListener {
         } else {
             return false;
         }
+    }
+
+    public void dataReceived(byte[] data, int byteCount) {
+        int i = 0;
+        while (i < byteCount) {
+            btBuffer[bufferCount] = data[i];
+            if (bufferCount > 2 && (btBuffer[bufferCount] == (byte) 0x54) && (btBuffer[bufferCount-1] == (byte) 0x55)) {
+                byte[] message = new byte[bufferCount-1];
+                for (int j = 0; j < bufferCount - 1; j++) {
+                    message[j] = btBuffer[j];
+                }
+                processRobotMessage(message);
+                bufferCount = 0;
+            } else {
+                bufferCount++;
+            }
+            i++;
+        }
+    }
+
+    public void btConnect() {
+        btManager.btConnect();
+    }
+
+    public void btDisconnect() {
+        btManager.btDisconnect();
     }
 
     private void processId(byte[] message) {
@@ -169,70 +225,118 @@ public class RobotControllerHome implements BluetoothListener {
         return (byte) ~val;
     }
 
-    public byte[] setRobotMotion(RobotMotion motion) {
+
+
+    // ---------------------------------------------------------------------
+    // The functions below serve as the API for the robot controller
+    // ---------------------------------------------------------------------
+
+    public void setRobotMotion(RobotMotion motion) {
         byte[] data = new byte[6];
         data[0] = 0x21;
-        return null;
+        data[1] = 0x00;
+        if (motion == RobotMotion.OFF) {
+            data[2] = 0x00;
+        } else if (motion == RobotMotion.SECURE) {
+            data[2] = 0x0A;
+        } else if (motion == RobotMotion.IDLE) {
+            data[2] = 0x11;
+        } else if (motion == RobotMotion.STOP) {
+            data[2] = 0x12;
+        } else if (motion == RobotMotion.ALARM) {
+            data[2] = 0x13;
+        } else if (motion == RobotMotion.LOVE) {
+            data[2] = 0x15;
+        } else if (motion == RobotMotion.DANCE) {
+            data[2] = 0x17;
+        } else if (motion == RobotMotion.SURPRISE) {
+            data[2] = 0x20;
+        } else if (motion == RobotMotion.HI) {
+            data[2] = 0x21;
+        } else if (motion == RobotMotion.SAD) {
+            data[2] = 0x22;
+        }
+        data[3] = 0x00;
+        data[4] = 0x00;
+        data[5] = 0x00;
+        sendCmdMessage(constructCommand(data, true));
     }
 
-    public byte[] setMotorVelocity(int linearVel, int angularVel, int duration, int side) {
+    public void setMotorVelocity(int linearVel, int angularVel, int duration) {
         byte[] data = new byte[6];
         data[0] = 0x22;
-        if (side == LEFT)
-            data[1] = 0x00;
-        else if (side == RIGHT)
-            data[1] = 0x01;
-        data[2] = (byte) duration;
-        data[3] = (byte) (duration >> 8);
-        data[4] = (byte) angularVel;
-        data[5] = (byte) linearVel;
-        return constructCommand(data, true);
+        data[1] = 0x00;
+        data[2] = (byte) linearVel;
+        data[3] = (byte) angularVel;
+        data[4] = (byte) duration;
+        data[5] = (byte) (duration >> 8);
+        sendCmdMessage(constructCommand(data, true));
     }
 
-    public byte[] setLedColor(int red, int green, int blue, int position) {
-        return null;
+    public void setLedColor(int red, int green, int blue, int position) {
+        byte[] data = new byte[6];
+        data[0] = 0x56;
+        data[1] = (byte) position;
+        data[2] = (byte) red;
+        data[3] = (byte) green;
+        data[4] = (byte) blue;
+        data[5] = 0x00;
+        sendCmdMessage(constructCommand(data, true));
     }
 
-    public byte[] setObstacleAvoidance(boolean enable) {
-        return null;
-    }
-
-    public byte[] setBuildDate(int year, int month) {
-        return null;
-    }
-
-    public byte[] setBuildNumber(int buildNumber) {
-        return null;
-    }
-
-    public byte[] setSerialNumber(int serialNumber) {
-        return null;
-    }
-
-    public byte[] setRobotMacAddress(String macAddress) {
-        return null;
-    }
-
-    public void dataReceived(byte[] data, int byteCount) {
-        int i = 0;
-        while (i < byteCount) {
-            if (data[i] == 0x55 && data[i+1] == 0x54) {
-                processRobotMessage(btBuffer);
-                bufferCount = 0;
-                i = i + 2;
-            } else {
-                btBuffer[bufferCount] = data[i];
-                bufferCount++;
-                i++;
-            }
+    public void setObstacleAvoidance(boolean enable) {
+        byte[] data = new byte[6];
+        data[0] = 0x1F;
+        data[1] = 0x00;
+        if (enable) {
+            data[2] = 0x01;
+        } else {
+            data[2] = 0x00;
         }
+        data[3] = 0x00;
+        data[4] = 0x00;
+        data[5] = 0x00;
+        sendCmdMessage(constructCommand(data, true));
     }
 
-    public void btConnect() {
-        btManager.btConnect();
+    public void setBuildDate(int year, int month) {
+
     }
 
-    public void btDisconnect() {
-        btManager.btDisconnect();
+    public void setBuildNumber(int buildNumber) {
+
     }
+
+    public void setSerialNumber(int serialNumber) {
+
+    }
+
+    public void setRobotMacAddress(String macAddress) {
+
+    }
+
+    public String[] requestEncoderCount() {
+        return null;
+    }
+
+    public String[] requestCurrentVelocity() {
+        return null;
+    }
+
+    public String[] requestDistanceSensor() {
+        return null;
+    }
+
+    public String[] requestTemperatureSensor() {
+        return null;
+    }
+
+    public String[] requestHumiditySensor() {
+        return null;
+    }
+
+    public String[] requestBatteryInfo() {
+        return null;
+    }
+
 }
