@@ -50,7 +50,7 @@ public class RobotControllerParrot implements BluetoothListener {
     }
 
     public void processRobotMessage(byte[] message) {
-        if (checkCRC(message) && message.length -1 == message[1]) {
+        if (checkCRC(message) && (message.length -2 == message[1])) {
             switch (message[0]) {
                 case (0x16):
                     processTouchSensor(message);
