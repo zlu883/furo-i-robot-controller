@@ -236,22 +236,22 @@ public class RobotControllerParrot implements BluetoothListener {
         command[2] = (byte) 0x03;
         command[3] = (byte) 0xc0;
         int b = 0;
-        if (headRed) {
+        if (wingRed) {
             b = b + 32;
         }
-        if (headGreen) {
+        if (wingGreen) {
             b = b + 16;
         }
-        if (headBlue) {
+        if (wingBlue) {
             b = b + 8;
         }
-        if (wingRed) {
+        if (headRed) {
             b = b + 4;
         }
-        if (wingGreen) {
+        if (headGreen) {
             b = b + 2;
         }
-        if (wingBlue) {
+        if (headBlue) {
             b = b + 1;
         }
         command[4] = (byte) b;
